@@ -21,7 +21,7 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
-ENVIRONMENT = os.getenv("ENVIRONMENT", "production")  # production o development
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Faltan las credenciales de Supabase en el archivo .env")
@@ -61,12 +61,13 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Modelo de la tabla
+# Modelo de la tabla (ACTUALIZADO CON PHONE)
 class WaitlistDB(Base):
     __tablename__ = "waitlist"
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    phone = Column(String(20), nullable=True)  # NUEVO CAMPO
     company_name = Column(String(255), nullable=False)
     company_niche = Column(String(255), nullable=False)
     company_size = Column(String(50), nullable=False)
@@ -80,8 +81,8 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="Waitlist API",
     description="API para gestionar waitlist de empresas con seguridad mejorada",
-    version="2.0.0",
-    docs_url="/docs" if ENVIRONMENT == "development" else None,  # Ocultar docs en producción
+    version="2.1.0",
+    docs_url="/docs" if ENVIRONMENT == "development" else None,
     redoc_url="/redoc" if ENVIRONMENT == "development" else None
 )
 
@@ -96,17 +97,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["POST", "GET"],
     allow_headers=["Content-Type", "Authorization"],
-    max_age=600  # Cache preflight por 10 minutos
+    max_age=600
 )
 
 
-# Middleware para hosts confiables
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=TRUSTED_HOSTS + ["*"] if ENVIRONMENT == "development" else TRUSTED_HOSTS
 )
 
-# Middleware personalizado para seguridad adicional
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -124,9 +123,10 @@ def get_db():
         db.close()
 
 
-
+# Modelo Pydantic (ACTUALIZADO CON PHONE)
 class WaitlistEntry(BaseModel):
     email: EmailStr
+    phone: str = Field(..., min_length=7, max_length=20)  # NUEVO CAMPO
     company_name: str = Field(..., min_length=2, max_length=255)
     company_niche: str = Field(..., min_length=2, max_length=255)
     company_size: str = Field(..., min_length=1, max_length=50)
@@ -141,6 +141,15 @@ class WaitlistEntry(BaseModel):
             raise ValueError('No se permiten emails temporales')
         return v.lower().strip()
 
+    @validator('phone')
+    def validate_phone(cls, v):
+        # Limpiar el teléfono de espacios y caracteres especiales
+        cleaned = re.sub(r'[^\d+]', '', v)
+        # Validar formato básico (puede ajustarse según necesidades)
+        if not re.match(r'^\+?[\d]{7,15}$', cleaned):
+            raise ValueError('Número de teléfono inválido')
+        return cleaned
+
     @validator('company_name', 'company_niche')
     def validate_text_fields(cls, v):
         if not re.match(r'^[a-zA-Z0-9\s\-\.,áéíóúÁÉÍÓÚñÑ&()]+$', v):
@@ -152,7 +161,8 @@ class WaitlistEntry(BaseModel):
 
     @validator('company_size')
     def validate_company_size(cls, v):
-        valid_sizes = ['1-10', '11-50', '51-200', '201-500', '500+']
+        # ACTUALIZADO CON "No aplica"
+        valid_sizes = ['1-10', '11-50', '51-200', '201-500', '500+', 'No aplica']
         if v not in valid_sizes:
             raise ValueError(f'Tamaño de empresa debe ser uno de: {", ".join(valid_sizes)}')
         return v
@@ -161,6 +171,7 @@ class WaitlistEntry(BaseModel):
         json_schema_extra = {
             "example": {
                 "email": "contacto@empresa.com",
+                "phone": "+573001234567",
                 "company_name": "Mi Empresa SAS",
                 "company_niche": "Tecnología",
                 "company_size": "11-50"
@@ -177,13 +188,12 @@ async def startup_event():
     except Exception as e:
         print(f"Error al crear tablas: {str(e)}")
 
-# Rutas de la API
 @app.get("/")
 @limiter.limit("30/minute")
 async def root(request: Request):
     return {
         "message": "Waitlist API activa con seguridad mejorada",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "environment": ENVIRONMENT,
         "endpoints": {
             "POST /waitlist": "Registrar en waitlist (5 req/min por IP)",
@@ -195,7 +205,6 @@ async def root(request: Request):
 @app.get("/health")
 @limiter.limit("60/minute")
 async def health_check(request: Request):
-    """Verificar que el servicio y la base de datos están funcionando"""
     try:
         db = SessionLocal()
         db.execute(text("SELECT 1"))
@@ -213,7 +222,7 @@ async def health_check(request: Request):
         )
 
 @app.post("/waitlist", status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")  # Máximo 5 registros por minuto por IP
+@limiter.limit("5/minute")
 async def add_to_waitlist(entry: WaitlistEntry, request: Request):
     """Agregar una empresa a la waitlist"""
     db = SessionLocal()
@@ -226,9 +235,10 @@ async def add_to_waitlist(entry: WaitlistEntry, request: Request):
                 detail="Este email ya está registrado en la waitlist"
             )
         
-        # Crear nuevo registro
+        # Crear nuevo registro (ACTUALIZADO CON PHONE)
         new_entry = WaitlistDB(
             email=entry.email,
+            phone=entry.phone,
             company_name=entry.company_name,
             company_niche=entry.company_niche,
             company_size=entry.company_size
@@ -243,6 +253,7 @@ async def add_to_waitlist(entry: WaitlistEntry, request: Request):
             "data": {
                 "id": new_entry.id,
                 "email": new_entry.email,
+                "phone": new_entry.phone,
                 "company_name": new_entry.company_name,
                 "created_at": new_entry.created_at.isoformat()
             }
@@ -270,7 +281,6 @@ async def add_to_waitlist(entry: WaitlistEntry, request: Request):
 @app.get("/waitlist/count")
 @limiter.limit("20/minute")
 async def get_waitlist_count(request: Request):
-    """Obtener el número total de registros en la waitlist"""
     db = SessionLocal()
     try:
         count = db.query(WaitlistDB).count()
@@ -289,7 +299,6 @@ async def get_waitlist_count(request: Request):
 @app.get("/waitlist/recent")
 @limiter.limit("10/minute")
 async def get_recent_entries(request: Request, limit: int = 10):
-    """Obtener los registros más recientes (solo en development)"""
     if ENVIRONMENT == "production":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -311,6 +320,7 @@ async def get_recent_entries(request: Request, limit: int = 10):
                 {
                     "id": e.id,
                     "email": e.email,
+                    "phone": e.phone,
                     "company_name": e.company_name,
                     "company_niche": e.company_niche,
                     "company_size": e.company_size,
