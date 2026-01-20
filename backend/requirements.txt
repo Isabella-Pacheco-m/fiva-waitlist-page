@@ -12,6 +12,7 @@ python-dotenv==1.0.0
 
 # Pydantic (sin fijar versión exacta)
 pydantic>=2.11.7,<3.0
+email-validator>=2.0.0
 
 # Para recibir formularios de FastAPI
 python-multipart==0.0.6
