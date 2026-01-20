@@ -104,19 +104,6 @@ function App() {
                       </div>
                     </a>
 
-                    <a href="https://instagram.com/fiva.co" target="_blank" rel="noopener noreferrer" className="hover:opacity-75 transition-opacity">
-                      <div className="bg-[#F5C423] w-6 h-6 rounded-md flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-                          <circle cx="12" cy="12" r="4" />
-                          <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-                        </svg>
-                      </div>
-                    </a>
-                  </div>
-                </div>
-              </div>
-
 
               <div className="lg:col-span-6 flex justify-center lg:justify-end items-end h-full order-2 lg:order-2 relative mt-8 lg:mt-0 border-solid">
                 <video
