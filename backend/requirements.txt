@@ -1,17 +1,22 @@
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
 
-# Supabase
-supabase==2.23.3
-supabase-auth==2.12.3
+# Cliente oficial de Supabase (auth, db, storage, realtime)
+supabase==2.27.2
 
-# HTTP client (pin para evitar incompatibilidades)
-httpx==0.27.2
+# Cliente HTTP compatible
+httpx>=0.27.0,<0.29.0
 
+# Cargar variables de entorno
 python-dotenv==1.0.0
-pydantic[email]==2.10.3
+
+# Pydantic (sin fijar versión exacta)
+pydantic>=2.11.7,<3.0
+email-validator>=2.0.0
+
+# Para recibir formularios de FastAPI
 python-multipart==0.0.6
 
-# DB
+# Base de datos y ORM
 sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
