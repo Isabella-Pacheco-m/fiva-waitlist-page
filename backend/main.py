@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, EmailStr, Field, validator
 from supabase import create_client, Client
 from sqlalchemy import create_engine, Column, String, BigInteger, DateTime, text
@@ -8,16 +9,20 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from dotenv import load_dotenv
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import re
 
 
 load_dotenv()
 
-
+# Configuración de variables de entorno
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")  # production o development
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Faltan las credenciales de Supabase en el archivo .env")
@@ -25,17 +30,33 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 if not DATABASE_URL:
     raise ValueError("Falta DATABASE_URL en el archivo .env")
 
+# Configurar dominios permitidos según el entorno
+if ENVIRONMENT == "production":
+    ALLOWED_ORIGINS = [
+        "https://fiva-waitlist.vercel.app",
+        "https://fiva-waitlist-page-production.up.railway.app"
+    ]
+    TRUSTED_HOSTS = [
+        "fiva-waitlist.vercel.app",
+        "fiva-waitlist-page-production.up.railway.app"
+    ]
+else:
+    ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173"
+    ]
+    TRUSTED_HOSTS = ["localhost", "127.0.0.1"]
 
-# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-
+# Configuración de SQLAlchemy
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,  
-    pool_size=5,  
-    max_overflow=10,  
-    pool_recycle=3600,  
-    echo=False  
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=3600,
+    echo=False
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -52,22 +73,47 @@ class WaitlistDB(Base):
     company_size = Column(String(50), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=text('NOW()'))
 
+# Configurar rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # Inicializar FastAPI
 app = FastAPI(
     title="Waitlist API",
-    description="API para gestionar waitlist de empresas con Transaction Pooler",
-    version="1.0.0"
+    description="API para gestionar waitlist de empresas con seguridad mejorada",
+    version="2.0.0",
+    docs_url="/docs" if ENVIRONMENT == "development" else None,  # Ocultar docs en producción
+    redoc_url="/redoc" if ENVIRONMENT == "development" else None
 )
 
+# Registrar rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Middleware de seguridad
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["POST", "GET"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization"],
+    max_age=600  # Cache preflight por 10 minutos
 )
 
+# Middleware para hosts confiables
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=TRUSTED_HOSTS + ["*"] if ENVIRONMENT == "development" else TRUSTED_HOSTS
+)
+
+# Middleware personalizado para seguridad adicional
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 def get_db():
     db = SessionLocal()
@@ -76,19 +122,35 @@ def get_db():
     finally:
         db.close()
 
-
+# Modelo de validación mejorado
 class WaitlistEntry(BaseModel):
     email: EmailStr
     company_name: str = Field(..., min_length=2, max_length=255)
     company_niche: str = Field(..., min_length=2, max_length=255)
     company_size: str = Field(..., min_length=1, max_length=50)
 
+    @validator('email')
+    def validate_email(cls, v):
+        # Validación adicional de email
+        if not v or len(v) > 255:
+            raise ValueError('Email inválido')
+        # Evitar emails temporales comunes
+        disposable_domains = ['tempmail.com', 'throwaway.email', '10minutemail.com']
+        domain = v.split('@')[1].lower()
+        if domain in disposable_domains:
+            raise ValueError('No se permiten emails temporales')
+        return v.lower().strip()
+
     @validator('company_name', 'company_niche')
     def validate_text_fields(cls, v):
-        # Evitar caracteres especiales maliciosos
-        if not re.match(r'^[a-zA-Z0-9\s\-\.,áéíóúÁÉÍÓÚñÑ]+$', v):
+        # Evitar inyecciones y caracteres maliciosos
+        if not re.match(r'^[a-zA-Z0-9\s\-\.,áéíóúÁÉÍÓÚñÑ&()]+$', v):
             raise ValueError('El campo contiene caracteres no permitidos')
-        return v.strip()
+        # Evitar strings vacíos después de strip
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError('El campo no puede estar vacío')
+        return cleaned
 
     @validator('company_size')
     def validate_company_size(cls, v):
@@ -107,31 +169,34 @@ class WaitlistEntry(BaseModel):
             }
         }
 
-
 @app.on_event("startup")
 async def startup_event():
     try:
         Base.metadata.create_all(bind=engine)
         print("✅ Tablas verificadas/creadas exitosamente")
+        print(f"🔧 Entorno: {ENVIRONMENT}")
+        print(f"🌐 Orígenes permitidos: {ALLOWED_ORIGINS}")
     except Exception as e:
         print(f"❌ Error al crear tablas: {str(e)}")
 
 # Rutas de la API
 @app.get("/")
-async def root():
+@limiter.limit("30/minute")
+async def root(request: Request):
     return {
-        "message": "Waitlist API activa con Transaction Pooler",
-        "version": "1.0.0",
-        "database": "PostgreSQL con Transaction Pooling",
+        "message": "Waitlist API activa con seguridad mejorada",
+        "version": "2.0.0",
+        "environment": ENVIRONMENT,
         "endpoints": {
-            "POST /waitlist": "Registrar en waitlist",
+            "POST /waitlist": "Registrar en waitlist (5 req/min por IP)",
             "GET /health": "Verificar estado del servicio",
             "GET /waitlist/count": "Obtener total de registros"
         }
     }
 
 @app.get("/health")
-async def health_check():
+@limiter.limit("60/minute")
+async def health_check(request: Request):
     """Verificar que el servicio y la base de datos están funcionando"""
     try:
         db = SessionLocal()
@@ -140,16 +205,18 @@ async def health_check():
         return {
             "status": "healthy",
             "database": "connected",
-            "pooler": "transaction mode"
+            "pooler": "transaction mode",
+            "environment": ENVIRONMENT
         }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Error de conexión con la base de datos: {str(e)}"
+            detail="Error de conexión con la base de datos"
         )
 
 @app.post("/waitlist", status_code=status.HTTP_201_CREATED)
-async def add_to_waitlist(entry: WaitlistEntry):
+@limiter.limit("5/minute")  # Máximo 5 registros por minuto por IP
+async def add_to_waitlist(entry: WaitlistEntry, request: Request):
     """Agregar una empresa a la waitlist"""
     db = SessionLocal()
     try:
@@ -204,7 +271,8 @@ async def add_to_waitlist(entry: WaitlistEntry):
         db.close()
 
 @app.get("/waitlist/count")
-async def get_waitlist_count():
+@limiter.limit("20/minute")
+async def get_waitlist_count(request: Request):
     """Obtener el número total de registros en la waitlist"""
     db = SessionLocal()
     try:
@@ -222,8 +290,21 @@ async def get_waitlist_count():
         db.close()
 
 @app.get("/waitlist/recent")
-async def get_recent_entries(limit: int = 10):
-    """Obtener los registros más recientes"""
+@limiter.limit("10/minute")
+async def get_recent_entries(request: Request, limit: int = 10):
+    """Obtener los registros más recientes (solo en development)"""
+    if ENVIRONMENT == "production":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Endpoint no disponible en producción"
+        )
+    
+    if limit > 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El límite máximo es 50 registros"
+        )
+    
     db = SessionLocal()
     try:
         entries = db.query(WaitlistDB).order_by(WaitlistDB.created_at.desc()).limit(limit).all()
@@ -249,7 +330,6 @@ async def get_recent_entries(limit: int = 10):
     finally:
         db.close()
 
-# (Para desarrollo local)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
