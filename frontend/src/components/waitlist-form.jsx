@@ -117,7 +117,7 @@ export function WaitlistForm() {
 
       console.log('Sending payload:', payload) // Debug log
 
-      const response = await fetch('http://localhost:8001/waitlist', {
+      const response = await fetch('https://fiva-waitlist-page-production.up.railway.app/waitlist', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,7 +142,7 @@ export function WaitlistForm() {
     } catch (error) {
       setIsSubmitting(false)
       console.error('Connection error:', error)
-      alert('Error de conexión. Verifica que el backend esté corriendo en el puerto 8001.')
+      alert('Error de conexión. Por favor intenta nuevamente.')
     }
   }
 
@@ -233,8 +233,6 @@ export function WaitlistForm() {
             />
           ))}
         </div>
-
-        {/* Step indicator */}
 
         {/* Question */}
         <h3 className="text-lg font-bold text-[#1A1A1A] mb-4">
