@@ -26,7 +26,7 @@ if not DATABASE_URL:
     raise ValueError("Falta DATABASE_URL en el archivo .env")
 
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 engine = create_engine(
