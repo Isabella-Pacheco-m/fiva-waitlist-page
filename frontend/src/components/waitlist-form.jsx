@@ -15,6 +15,17 @@ const steps = [
     },
   },
   {
+    id: "phone",
+    label: "Número de teléfono",
+    type: "tel",
+    placeholder: "+57 300 123 4567",
+    validation: (value) => {
+      const cleaned = value.replace(/[^\d+]/g, '')
+      const phoneRegex = /^\+?[\d]{7,15}$/
+      return phoneRegex.test(cleaned) ? null : "Por favor ingresa un número válido"
+    },
+  },
+  {
     id: "company",
     label: "Nombre de la empresa",
     type: "text",
@@ -53,6 +64,7 @@ const steps = [
       "51-200 empleados",
       "201-500 empleados",
       "500+ empleados",
+      "No aplica",
     ],
     validation: (value) => {
       return value ? null : "Por favor selecciona el tamaño"
@@ -65,6 +77,7 @@ export function WaitlistForm() {
   const [currentStep, setCurrentStep] = useState(0)
   const [formData, setFormData] = useState({
     email: "",
+    phone: "",
     company: "",
     sector: "",
     size: "",
@@ -104,18 +117,23 @@ export function WaitlistForm() {
     setIsSubmitting(true)
 
     try {
-      // Map form data to backend expected format
-      // Extract size without " empleados" suffix (e.g., "1-10 empleados" -> "1-10")
-      const sizeValue = formData.size.replace(' empleados', '')
+      // Limpiar el teléfono de espacios y caracteres especiales
+      const cleanedPhone = formData.phone.replace(/[^\d+]/g, '')
+      
+      // Extraer tamaño sin " empleados" (excepto "No aplica")
+      const sizeValue = formData.size === "No aplica" 
+        ? "No aplica" 
+        : formData.size.replace(' empleados', '')
 
       const payload = {
         email: formData.email,
+        phone: cleanedPhone,
         company_name: formData.company,
         company_niche: formData.sector,
         company_size: sizeValue
       }
 
-      console.log('Sending payload:', payload) // Debug log
+      console.log('Sending payload:', payload)
 
       const response = await fetch('https://fiva-waitlist-page-production.up.railway.app/waitlist', {
         method: 'POST',
@@ -132,7 +150,6 @@ export function WaitlistForm() {
         setIsComplete(true)
       } else {
         setIsSubmitting(false)
-        // Handle error - show detailed error message
         console.error('Backend error:', data)
         const errorMsg = typeof data.detail === 'string'
           ? data.detail
@@ -155,7 +172,6 @@ export function WaitlistForm() {
 
   const handleInputChange = (value) => {
     setFormData((prev) => ({ ...prev, [currentField.id]: value }))
-    // Clear error when user starts typing
     if (errors[currentField.id]) {
       setErrors((prev) => ({ ...prev, [currentField.id]: null }))
     }
@@ -168,7 +184,7 @@ export function WaitlistForm() {
   const closeForm = () => {
     setIsOpen(false)
     setCurrentStep(0)
-    setFormData({ email: "", company: "", sector: "", size: "" })
+    setFormData({ email: "", phone: "", company: "", sector: "", size: "" })
     setErrors({})
     setIsComplete(false)
   }
@@ -223,16 +239,7 @@ export function WaitlistForm() {
   return (
     <div className="w-full max-w-lg">
       <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-7 border border-gray-100 shadow-sm">
-        {/* Progress bar */}
-        <div className="flex gap-1.5 mb-5">
-          {steps.map((_, index) => (
-            <div
-              key={index}
-              className={`h-1 flex-1 rounded-full transition-all duration-300 ${index <= currentStep ? "bg-[#F5C423]" : "bg-gray-200"
-                }`}
-            />
-          ))}
-        </div>
+        {/* Barra de progreso ELIMINADA */}
 
         {/* Question */}
         <h3 className="text-lg font-bold text-[#1A1A1A] mb-4">
