@@ -18,7 +18,6 @@ import re
 
 load_dotenv()
 
-# Configuración de variables de entorno
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -30,7 +29,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 if not DATABASE_URL:
     raise ValueError("Falta DATABASE_URL en el archivo .env")
 
-# Configurar dominios permitidos según el entorno
+
 if ENVIRONMENT == "production":
     ALLOWED_ORIGINS = [
         "https://fiva-waitlist.vercel.app",
@@ -76,6 +75,7 @@ class WaitlistDB(Base):
 # Configurar rate limiter
 limiter = Limiter(key_func=get_remote_address)
 
+
 # Inicializar FastAPI
 app = FastAPI(
     title="Waitlist API",
@@ -89,7 +89,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Middleware de seguridad
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -98,6 +98,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
     max_age=600  # Cache preflight por 10 minutos
 )
+
 
 # Middleware para hosts confiables
 app.add_middleware(
@@ -122,7 +123,8 @@ def get_db():
     finally:
         db.close()
 
-# Modelo de validación mejorado
+
+
 class WaitlistEntry(BaseModel):
     email: EmailStr
     company_name: str = Field(..., min_length=2, max_length=255)
@@ -131,10 +133,8 @@ class WaitlistEntry(BaseModel):
 
     @validator('email')
     def validate_email(cls, v):
-        # Validación adicional de email
         if not v or len(v) > 255:
             raise ValueError('Email inválido')
-        # Evitar emails temporales comunes
         disposable_domains = ['tempmail.com', 'throwaway.email', '10minutemail.com']
         domain = v.split('@')[1].lower()
         if domain in disposable_domains:
@@ -143,10 +143,8 @@ class WaitlistEntry(BaseModel):
 
     @validator('company_name', 'company_niche')
     def validate_text_fields(cls, v):
-        # Evitar inyecciones y caracteres maliciosos
         if not re.match(r'^[a-zA-Z0-9\s\-\.,áéíóúÁÉÍÓÚñÑ&()]+$', v):
             raise ValueError('El campo contiene caracteres no permitidos')
-        # Evitar strings vacíos después de strip
         cleaned = v.strip()
         if not cleaned:
             raise ValueError('El campo no puede estar vacío')
@@ -173,11 +171,11 @@ class WaitlistEntry(BaseModel):
 async def startup_event():
     try:
         Base.metadata.create_all(bind=engine)
-        print("✅ Tablas verificadas/creadas exitosamente")
-        print(f"🔧 Entorno: {ENVIRONMENT}")
-        print(f"🌐 Orígenes permitidos: {ALLOWED_ORIGINS}")
+        print("Tablas verificadas/creadas exitosamente")
+        print(f"Entorno: {ENVIRONMENT}")
+        print(f"Orígenes permitidos: {ALLOWED_ORIGINS}")
     except Exception as e:
-        print(f"❌ Error al crear tablas: {str(e)}")
+        print(f"Error al crear tablas: {str(e)}")
 
 # Rutas de la API
 @app.get("/")
@@ -220,7 +218,6 @@ async def add_to_waitlist(entry: WaitlistEntry, request: Request):
     """Agregar una empresa a la waitlist"""
     db = SessionLocal()
     try:
-        # Verificar si el email ya existe
         existing = db.query(WaitlistDB).filter(WaitlistDB.email == entry.email).first()
         
         if existing:
