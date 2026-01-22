@@ -9,7 +9,7 @@ function App() {
   const [showPrivacy, setShowPrivacy] = useState(false)
 
   return (
-    <main className="min-h-screen lg:h-screen w-full bg-white relative lg:overflow-hidden flex flex-col font-sans selection:bg-yellow-50 italic-none">
+    <main className="min-h-screen w-full bg-white relative flex flex-col font-sans selection:bg-yellow-50 italic-none">
 
       <div
         className="absolute inset-0 z-0 pointer-events-none opacity-30"
@@ -21,7 +21,7 @@ function App() {
         }}
       />
 
-      <div className="relative z-10 flex flex-col h-full">
+      <div className="relative z-10 flex flex-col min-h-screen">
 
         <header className="w-full flex justify-center py-0 shrink-0">
           <img
@@ -33,11 +33,11 @@ function App() {
 
 
         {!showPrivacy ? (
-          <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto px-6 sm:px-12 lg:px-20 w-full lg:items-center">
-            <div className="grid lg:grid-cols-12 gap-8 lg:gap-16 items-center h-full w-full">
+          <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto px-6 sm:px-12 lg:px-20 w-full items-center py-10 lg:py-16">
+            <div className="grid lg:grid-cols-12 gap-12 lg:gap-24 items-center w-full">
 
 
-              <div className="lg:col-span-6 flex flex-col justify-center gap-6 lg:gap-7 order-1 z-20 py-10 lg:py-0 lg:mb-16">
+              <div className="lg:col-span-6 flex flex-col justify-center gap-6 lg:gap-7 order-1 z-20 py-6 lg:py-0">
 
                 <div className="inline-flex items-center gap-2.5 bg-[#FEF9E7] border border-[#F5C423] rounded-full px-4 py-1.5 w-fit">
                   <img src={bandera} alt="CO" className="w-5 h-auto object-contain rounded-sm" />
@@ -108,14 +108,14 @@ function App() {
               </div>
 
 
-              <div className="lg:col-span-6 flex justify-center lg:justify-end items-end h-full order-2 lg:order-2 relative mt-8 lg:mt-0 border-solid">
+              <div className="lg:col-span-6 flex justify-center lg:justify-end items-center lg:items-end w-full order-2 relative mt-8 lg:mt-0">
                 <video
                   src={illustration}
                   autoPlay
                   loop
                   muted
                   playsInline
-                  className="w-full sm:w-[90%] lg:w-[125%] lg:max-w-none h-auto object-contain object-bottom pointer-events-none select-none relative z-10 border-none shadow-none outline-none"
+                  className="w-full sm:w-[90%] lg:w-[125%] lg:max-w-none h-auto object-contain object-bottom pointer-events-none select-none relative z-10"
                   style={{ marginBottom: '-1px' }}
                 />
               </div>
@@ -137,8 +137,8 @@ function App() {
 
 
         {/* Footer */}
-        <footer className="absolute bottom-4 left-0 right-0 py-4 px-10 z-40 bg-transparent pointer-events-none">
-          <div className="max-w-7xl mx-auto flex flex-row justify-between items-center pointer-events-auto">
+        <footer className="w-full py-8 px-6 sm:px-12 lg:px-20 shrink-0 mt-auto">
+          <div className="max-w-7xl mx-auto flex flex-row justify-between items-center relative z-40">
             <p className="text-[10px] sm:text-[11px] font-medium text-gray-300 tracking-[0.1em] uppercase">
               © 2026 FIVA.
             </p>
