@@ -24,7 +24,7 @@ function App() {
 
       <div className="relative z-10 flex flex-col min-h-screen">
 
-        <header className="w-full flex justify-center pt-4 pb-2 shrink-0">
+        <header className="w-full flex justify-center pb-2 shrink-0">
           <img
             src={logo}
             alt="FIVA Logo"
@@ -32,7 +32,7 @@ function App() {
           />
         </header>
 
-        <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto px-6 sm:px-12 lg:px-20 w-full items-center py-10 lg:py-16">
+        <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto px-6 sm:px-12 lg:px-20 w-full items-center">
           <div className="grid lg:grid-cols-12 gap-12 lg:gap-24 items-center w-full">
 
             <div className="lg:col-span-6 flex flex-col justify-center gap-6 lg:gap-7 order-1 z-20 py-6 lg:py-0">
