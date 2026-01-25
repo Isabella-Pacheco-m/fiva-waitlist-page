@@ -33,11 +33,15 @@ if not DATABASE_URL:
 if ENVIRONMENT == "production":
     ALLOWED_ORIGINS = [
         "https://fiva-waitlist.vercel.app",
-        "https://fiva-waitlist-page-production.up.railway.app"
+        "https://fiva-waitlist-page-production.up.railway.app",
+        "https://www.fivadata.com", 
+        "https://fivadata.com" 
     ]
     TRUSTED_HOSTS = [
         "fiva-waitlist.vercel.app",
-        "fiva-waitlist-page-production.up.railway.app"
+        "fiva-waitlist-page-production.up.railway.app",
+        "www.fivadata.com",          
+        "fivadata.com"          
     ]
 else:
     ALLOWED_ORIGINS = [
