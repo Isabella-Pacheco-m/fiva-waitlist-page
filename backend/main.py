@@ -31,9 +31,10 @@ if DATABASE_URL.startswith("postgres://"):
 if ENVIRONMENT == "production":
     ALLOWED_ORIGINS = [
         "https://fiva-waitlist.vercel.app",
+        "https://fiva-waitlist-frontend-production.up.railway.app",
         "https://fiva-waitlist-page-production.up.railway.app",
-        "https://www.fivadata.com", 
-        "https://fivadata.com" 
+        "https://www.fivadata.com",
+        "https://fivadata.com"
     ]
     TRUSTED_HOSTS = [
         "fiva-waitlist.vercel.app",
