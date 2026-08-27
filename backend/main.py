@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, EmailStr, Field, validator
-from supabase import create_client, Client
 from sqlalchemy import create_engine, Column, String, BigInteger, DateTime, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -18,16 +17,15 @@ import re
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("Faltan las credenciales de Supabase en el archivo .env")
-
 if not DATABASE_URL:
-    raise ValueError("Falta DATABASE_URL en el archivo .env")
+    raise ValueError("Falta DATABASE_URL en las variables de entorno")
+
+# Railway/Heroku a veces entregan la URL con el esquema antiguo "postgres://"
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 
 if ENVIRONMENT == "production":
@@ -39,9 +37,11 @@ if ENVIRONMENT == "production":
     ]
     TRUSTED_HOSTS = [
         "fiva-waitlist.vercel.app",
-        "fiva-waitlist-page-production.up.railway.app",
-        "www.fivadata.com",          
-        "fivadata.com"          
+        "*.up.railway.app",
+        "*.railway.app",
+        "healthcheck.railway.app",
+        "www.fivadata.com",
+        "fivadata.com"
     ]
 else:
     ALLOWED_ORIGINS = [
